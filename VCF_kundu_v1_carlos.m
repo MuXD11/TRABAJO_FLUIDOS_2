@@ -4,19 +4,19 @@
     %%%%%%%%%%%%     modulo de la velocidad para cada timestep
 
 %% Driven Cavity by the MAC Method
-clear; clc;
+clear; clc; close all;
 
 %% Dimensiones físicas
 % número de Vcontrol
-Nx_values = [32]; % Diferentes tamaños de malla
+Nx_values = [8,12,16,24,32]; % Diferentes tamaños de malla
 % Tamaño rectángulo
 Lx = 1;Ly = 1; 
-Visc = .0016666667; 
+Visc = 0.1; 
 rho = 1.0;      
  
 % Parámetros para resolución de la presión mediante SOR
 MaxIt = 100; 
-Beta = 1.5; 
+% beta_values = 1.2:0.1:1.5;
 MaxErr = 0.001;
 
 % Velocidades de la cavidad
@@ -33,10 +33,6 @@ time = 0.0;
 dt = 0.002;
 
 
-
-
-%% Bucle de tiempo
-
 % Inicialización de contadores de tiempo
 time_u = 0;
 time_v = 0;
@@ -45,13 +41,17 @@ time_plot = 0;
 
 % Inicializar variables para almacenar el flujo neto
 time_steps = dt * (1:MaxStep); % Eje temporal
-flux_net = zeros(length(Nx_values), MaxStep);
+% flux_net = zeros(length(Nx_values), MaxStep);
+% time_p_values = zeros(size(beta_values)); % Almacenar tiempos
 
-% Bucle para diferentes tamaños de malla
+
+%% Bucle para diferentes tamaños de malla
 for n = 1:length(Nx_values)
-    Nx = Nx_values(n);
-    Ny = Nx; % Malla cuadrada
-    
+   
+    Nx=Nx_values(n); % Malla cuadrada
+    Ny= Nx;
+    Beta =  1.2; % Asignar Beta actual
+
     dx = Lx / Nx;
     dy = Ly / Ny;
     % Inicialización de arrays
@@ -72,7 +72,13 @@ for n = 1:length(Nx_values)
 
     % Puntos de la malla
     [x, y] = meshgrid(linspace(0, Lx, Nx+1), linspace(0, Ly, Ny+1));
-    [Xp, Yp] = meshgrid(linspace(dx/2, Lx-dx/2, Nx), linspace(dy/2, Ly-dy/2, Ny)); 
+    [Xp, Yp] = meshgrid(linspace(dx/2, Lx-dx/2, Nx), linspace(dy/2, Ly-dy/2, Ny));
+    
+    
+   % time_p = 0; % Reiniciar tiempo de presión para esta beta
+
+
+    %% Bucle tiempo
     for is = 1:MaxStep
 
         fprintf('Iteración %d\n', is);
@@ -154,55 +160,61 @@ for n = 1:length(Nx_values)
 
     % Graficar resultados
     tic;
-    subplot(1, 2, 1);
-    quiver(x, y, uu', vv', 'linewidth', 1);
-    % title('Campo de velocidades');
-    axis equal; axis([0, Lx, 0, Ly]);
-    subplot(1, 2, 2);
-    contourf(x', y', vel_mod, 20, 'LineColor', 'none');
+   %  subplot(1, 3, 1);
+   %  quiver(x, y, uu', vv', 'linewidth', 1);
+   %  title('Campo de velocidades');
+   %  axis equal; axis([0, Lx, 0, Ly]);
+   %  subplot(1, 3, 2);
+   %  contourf(x', y', vel_mod, 20, 'LineColor', 'none');
    % title('Módulo de la velocidad');
-    colorbar;
-    axis equal; axis([0, Lx, 0, Ly]);
-    % subplot(1,3,3);
-    % p_plot = p(2:Nx+1, 2:Ny+1);
-    % contourf(Xp', Yp', p_plot', 20, 'LineColor', 'none');
-    % title('Distribución de Presión');
-    % colorbar; 
-    % axis equal; axis([0, Lx, 0, Ly]);
+   %  colorbar;
+   %  axis equal; axis([0, Lx, 0, Ly]);
+   %  subplot(1,3,3);
+   %  p_plot = p(2:Nx+1, 2:Ny+1);
+   %  contourf(Xp', Yp', p_plot, 20, 'LineColor', 'none');
+   %  title('Distribución de Presión');
+   %  colorbar; 
+   %  axis equal; axis([0, Lx, 0, Ly]);
 
-    pause(0.01);
-   % Calcular flujo neto de volumen
-        flux_net(n, is) = sum(sum(u(2:Nx, 2:Ny+1))) * dx * dy;
+    % pause(0.001);
+
+
     end
-end
+    % Extraer perfil de velocidades en la línea central
+    center_x = round(Nx / 2); % Índice aproximado de x = 0.5
+    u_centerline = uu(center_x, :)'; % Extraer las velocidades u en el centro
+    y_coords = linspace(0, Ly, Ny+1); % Coordenadas y
 
-% Graficar flujo neto de Volumen vs tiempo
-figure;
-hold on;
-plot(time_steps, flux_net(1, :), 'k-', 'LineWidth', 1.5); % Malla 8x8
-% plot(time_steps, flux_net(2, :), 'k--', 'LineWidth', 1.5); % Malla 16x16
-% plot(time_steps, flux_net(3, :), 'k-.', 'LineWidth', 1.5); % Malla 32x32
-xlabel('Tiempo (s)');
-ylabel('Flujo neto de volumen');
-% title('Flujo neto de volumen a lo largo del tiempo');
-% Añadir la leyenda indicando el tamaño de malla
-legend('Malla 8x8', 'Malla 16x16', 'Malla 32x32', 'Location', 'best');
+    % Almacenar resultados para diferentes mallas
+    u_profiles{n} = u_centerline;
+    y_profiles{n} = y_coords;
+    % 
+    % Almacenar tiempo de presión para este Beta
+    time_t_values(n) = time_u + time_v + time_p;
+end
 hold off;
+figure;
+b = bar(Nx_values, time_t_values); % Crear el gráfico de barras
+b.FaceColor = 'flat'; % Habilitar FaceColor para colores personalizados
+b.CData = jet(length(Nx_values)); % Aplicar una escala de colores (ej. 'jet')
+
+% Personalizar etiquetas del eje X
+xticks(Nx_values); % Asegura que los ticks coincidan con los valores de Nx_values
+xticklabels(arrayfun(@(n) sprintf('%dx%d', n, n), Nx_values, 'UniformOutput', false));
+
+xlabel('Mallado');
+ylabel('Tiempo de cómputo total (s)');
+% title('Tiempo de Cómputo para Diferentes Mallados');
+grid on;
+
 
 % Gráfico del campo de velocidades usando streamslice
 figure;
 hold on;
 
-% Crear un mapa de las velocidades uu y vv en la malla
 [Xgrid, Ygrid] = meshgrid(linspace(0, Lx, Nx+1), linspace(0, Ly, Ny+1));
-
-% Representar las líneas de flujo usando streamslice
+% Representar las líneas de corriente usando streamslice
 streamslice(Xgrid, Ygrid, uu', vv', 'linear', 'noarrows');
-
-% Personalizar el gráfico
-% xlabel('X (m)');
-% ylabel('Y (m)');
-% title('Campo de Velocidades con streamlines');
 axis equal;
 axis([0, Lx, 0, Ly]);
 grid on;
@@ -217,21 +229,34 @@ fprintf('Tiempo total en graficar: %.2f segundos\n', time_plot);
 fprintf('Tiempo total de la simulación: %.2f segundos\n', time_u + time_v + time_p+time_plot);
   
 
-% Gráfico de barras para la distribución del tiempo
-figure;
+% Datos para el gráfico
 labels = {'u*', 'v*', 'Presión (SOR)'};
 times = [time_u, time_v, time_p];
 
-bar(times);
-set(gca, 'XTickLabel', labels); % Etiquetas en el eje X
-xlabel('Componentes de Cálculo');
-ylabel('Tiempo (segundos)');
-title('Distribución del Tiempo de Cálculo por Componente');
-grid on;
+% Crear el diagrama circular
+figure;
+pie(times, labels);
 
-% Mostrar los valores encima de cada barra
-for i = 1:length(times)
-    text(i, times(i) + 0.01, sprintf('%.2f s', times(i)), ...
-        'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 10);
+% Añadir leyenda
+% legend(labels, 'Location', 'bestoutside');
+
+% Añadir rejilla (opcional, no se aplica en gráficos pie)
+% grid on;
+
+
+figure;
+hold on;
+plot(u_profiles{1}, y_profiles{1}, 'k-', 'LineWidth', 1.5, 'DisplayName', '8x8');
+if length(u_profiles) >= 2
+    plot(u_profiles{2}, y_profiles{2}, 'r-', 'LineWidth', 1.5, 'DisplayName', '16x16');
+end
+if length(u_profiles) >= 3
+    plot(u_profiles{3}, y_profiles{3}, 'b-', 'LineWidth', 1.5, 'DisplayName', '34x34');
 end
 
+xlabel('Velocidad U (m/s)');
+ylabel('Coordenada Y (m)');
+legend('Location', 'best');
+% title('Perfil de Velocidades en la Línea Central');
+grid on;
+hold off;
