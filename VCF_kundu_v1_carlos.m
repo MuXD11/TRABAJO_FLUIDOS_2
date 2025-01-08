@@ -7,16 +7,17 @@
 clear; clc; close all;
 
 %% Dimensiones físicas
+
 % número de Vcontrol
 Nx_values = [8,12,16,24,32]; % Diferentes tamaños de malla
-% Tamaño rectángulo
+% Tamaño dominio fisico (m)
 Lx = 1;Ly = 1; 
 Visc = 0.1; 
 rho = 1.0;      
  
-% Parámetros para resolución de la presión mediante SOR
+% Parametros para resolución de la presion mediante SOR
 MaxIt = 100; 
-% beta_values = 1.2:0.1:1.5;
+% beta_values = 1.2:0.1:1.5;    % estimacion mejor valor de beta 
 MaxErr = 0.001;
 
 % Velocidades de la cavidad
@@ -27,13 +28,13 @@ vw = 0;
 
 Re= un / (Visc/rho);        % tomamos L=1m 
 
-% Tiempo
+% Parametros temporales
 MaxStep = 500; 
 time = 0.0; 
 dt = 0.002;
 
 
-% Inicialización de contadores de tiempo
+% Inicializacion de contadores de tiempo computo
 time_u = 0;
 time_v = 0;
 time_p = 0;
@@ -41,8 +42,6 @@ time_plot = 0;
 
 % Inicializar variables para almacenar el flujo neto
 time_steps = dt * (1:MaxStep); % Eje temporal
-% flux_net = zeros(length(Nx_values), MaxStep);
-% time_p_values = zeros(size(beta_values)); % Almacenar tiempos
 
 
 %% Bucle para diferentes tamaños de malla
@@ -54,13 +53,14 @@ for n = 1:length(Nx_values)
 
     dx = Lx / Nx;
     dy = Ly / Ny;
-    % Inicialización de arrays
+
+    % Inicializacion de arrays
     u = zeros(Nx+1, Ny+2); v = zeros(Nx+2, Ny+1);
     p = zeros(Nx+2, Ny+2); ut = zeros(Nx+1, Ny+2);
     vt = zeros(Nx+2, Ny+1); pold = zeros(Nx+2, Ny+2);
     c = ones(Nx+1, Ny+2) / (2/dx^2 + 2/dy^2);
 
-    % Ajuste de coeficientes en las fronteras para presión
+    % Ajuste de coeficientes en las fronteras para presion
     c(2, 3:Ny) = 1 / (1/dx^2 + 2/dy^2);
     c(Nx+1, 3:Ny) = 1 / (1/dx^2 + 2/dy^2);
     c(3:Nx, 2) = 1 / (1/dx^2 + 2/dy^2);
@@ -75,7 +75,7 @@ for n = 1:length(Nx_values)
     [Xp, Yp] = meshgrid(linspace(dx/2, Lx-dx/2, Nx), linspace(dy/2, Ly-dy/2, Ny));
     
     
-   % time_p = 0; % Reiniciar tiempo de presión para esta beta
+   % time_p = 0; % Reiniciar tiempo de presión para cada beta
 
 
     %% Bucle tiempo
@@ -90,6 +90,7 @@ for n = 1:length(Nx_values)
         v(Nx+2, :) = 2 * ve - v(Nx+1, :);
 
         % Calcular velocidades temporales sin tener en cuenta la presión
+
         % componente horizontal
         tic;
         for i = 2:Nx
@@ -105,7 +106,7 @@ for n = 1:length(Nx_values)
                 );
             end
         end
-        time_u = time_u + toc; % Almacena el tiempo transcurrido en calcular u
+        time_u = time_u + toc; % almacena el tiempo transcurrido en calcular u
 
         % componente vertical
         tic;
@@ -122,9 +123,9 @@ for n = 1:length(Nx_values)
                 );
             end
         end
-        time_v = time_v + toc; % Almacena el tiempo transcurrido en calcular v
+        time_v = time_v + toc; % almacena el tiempo transcurrido en calcular v
 
-        % Resolver para presión usando SOR
+        % Resolver para presion usando SOR
         tic;
         for it = 1:MaxIt
             pold = p;
@@ -153,13 +154,12 @@ for n = 1:length(Nx_values)
 
     time = time + dt;
 
-    % módulo de velocidad total
+    % modulo de velocidad total
     uu = 0.5 * (u(1:Nx+1, 2:Ny+2) + u(1:Nx+1, 1:Ny+1));
     vv = 0.5 * (v(2:Nx+2, 1:Ny+1) + v(1:Nx+1, 1:Ny+1));
     vel_mod = sqrt(uu.^2 + vv.^2);
 
-    % Graficar resultados
-    tic;
+    % Graficar resultados a medida que avanza la simulacion
    %  subplot(1, 3, 1);
    %  quiver(x, y, uu', vv', 'linewidth', 1);
    %  title('Campo de velocidades');
@@ -176,10 +176,11 @@ for n = 1:length(Nx_values)
    %  colorbar; 
    %  axis equal; axis([0, Lx, 0, Ly]);
 
-    % pause(0.001);
+   %  pause(0.001);
 
 
     end
+
     % Extraer perfil de velocidades en la línea central
     center_x = round(Nx / 2); % Índice aproximado de x = 0.5
     u_centerline = uu(center_x, :)'; % Extraer las velocidades u en el centro
@@ -191,34 +192,32 @@ for n = 1:length(Nx_values)
     % 
     % Almacenar tiempo de presión para este Beta
     time_t_values(n) = time_u + time_v + time_p;
+
 end
 hold off;
-figure;
-b = bar(Nx_values, time_t_values); % Crear el gráfico de barras
-b.FaceColor = 'flat'; % Habilitar FaceColor para colores personalizados
-b.CData = jet(length(Nx_values)); % Aplicar una escala de colores (ej. 'jet')
 
-% Personalizar etiquetas del eje X
-xticks(Nx_values); % Asegura que los ticks coincidan con los valores de Nx_values
+figure;
+b = bar(Nx_values, time_t_values); % Crear el grafico de barras
+b.FaceColor = 'flat';     
+b.CData = jet(length(Nx_values));
+xticks(Nx_values); 
 xticklabels(arrayfun(@(n) sprintf('%dx%d', n, n), Nx_values, 'UniformOutput', false));
 
 xlabel('Mallado');
-ylabel('Tiempo de cómputo total (s)');
-% title('Tiempo de Cómputo para Diferentes Mallados');
+ylabel('Tiempo de computo total (s)');
+title('Tiempo de Computo para diferentes mallados');
 grid on;
 
 
-% Gráfico del campo de velocidades usando streamslice
+
 figure;
 hold on;
-
 [Xgrid, Ygrid] = meshgrid(linspace(0, Lx, Nx+1), linspace(0, Ly, Ny+1));
-% Representar las líneas de corriente usando streamslice
+% Representar las lineas de corriente usando streamslice
 streamslice(Xgrid, Ygrid, uu', vv', 'linear', 'noarrows');
 axis equal;
 axis([0, Lx, 0, Ly]);
 grid on;
-
 hold off;
 
 
@@ -226,7 +225,7 @@ fprintf('Tiempo total en calcular u*: %.2f segundos\n', time_u);
 fprintf('Tiempo total en calcular v*: %.2f segundos\n', time_v);
 fprintf('Tiempo total en calcular presión (SOR): %.2f segundos\n', time_p);
 fprintf('Tiempo total en graficar: %.2f segundos\n', time_plot);
-fprintf('Tiempo total de la simulación: %.2f segundos\n', time_u + time_v + time_p+time_plot);
+fprintf('Tiempo total de la simulación: %.2f segundos\n', time_u + time_v + time_p);
   
 
 % Datos para el gráfico
@@ -239,9 +238,6 @@ pie(times, labels);
 
 % Añadir leyenda
 % legend(labels, 'Location', 'bestoutside');
-
-% Añadir rejilla (opcional, no se aplica en gráficos pie)
-% grid on;
 
 
 figure;
@@ -257,6 +253,6 @@ end
 xlabel('Velocidad U (m/s)');
 ylabel('Coordenada Y (m)');
 legend('Location', 'best');
-% title('Perfil de Velocidades en la Línea Central');
+title('Perfil de Velocidades en la linea central');
 grid on;
 hold off;
